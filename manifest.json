@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Element Blur",
+  "version": "1.0",
+  "description": "Find all elements in a web page and apply a blur effect when the user clicks on them.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_icon": {
+      "16": "images/icon16.png",
+      "64": "images/icon64.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "64": "images/icon64.png",
+    "128": "images/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["toolbar.html", "toolbar.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

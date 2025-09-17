@@ -1,0 +1,22 @@
+#blur-toolbar {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  z-index: 10000;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+#blur-toolbar button {
+  cursor: pointer;
+}
+
+#blur-toolbar input[type="range"] {
+  width: 80px;
+}

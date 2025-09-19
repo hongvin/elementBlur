@@ -35,10 +35,26 @@ function toggleToolbar() {
         </div>
         <button id="toolbar-select-element" title="Select Element">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 2L10 6H6L8 2Z" fill="currentColor"/>
-            <path d="M8 10L6 14H10L8 10Z" fill="currentColor"/>
-            <path d="M2 8L6 6V10L2 8Z" fill="currentColor"/>
-            <path d="M14 8L10 10V6L14 8Z" fill="currentColor"/>
+            <!-- Selection corners -->
+            <path d="M1.5 0.5L1 0.5C0.72 0.5 0.5 0.72 0.5 1L0.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M14.5 0.5L15 0.5C15.28 0.5 15.5 0.72 15.5 1L15.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M1.5 15.5L1 15.5C0.72 15.5 0.5 15.28 0.5 15L0.5 14.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M14.5 15.5L15 15.5C15.28 15.5 15.5 15.28 15.5 15L15.5 14.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <!-- Dashed lines -->
+            <path d="M3.5 0.5L5.5 0.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M7.5 0.5L9.5 0.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M11.5 0.5L13.5 0.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M3.5 15.5L5.5 15.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M7.5 15.5L9.5 15.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M11.5 15.5L13.5 15.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M0.5 3.5L0.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M0.5 7.5L0.5 9.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M0.5 11.5L0.5 13.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M15.5 3.5L15.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M15.5 7.5L15.5 9.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <path d="M15.5 11.5L15.5 13.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+            <!-- Cursor arrow -->
+            <path d="M11.4 12.8C11.35 13 11.26 13 11.19 12.85L8.9 8.45C8.83 8.3 8.93 8.21 9.08 8.27L13.48 10.55C13.63 10.62 13.61 10.71 13.41 10.77L11.85 11.18Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" fill="none"/>
           </svg>
         </button>
         <button id="toolbar-draw-region" title="Draw Region">
@@ -59,6 +75,11 @@ function toggleToolbar() {
             <rect x="2" y="4" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
             <circle cx="8" cy="8.5" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
             <rect x="6" y="2" width="4" height="2" rx="0.5" fill="currentColor"/>
+          </svg>
+        </button>
+        <button id="toolbar-undo" title="Undo">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M 1.3 4.7 L 1.3 10.7 L 7.3 10.7 L 4.9 8.25 C 5.8 7.47 7 7 8.3 7 C 10.7 7 12.7 8.53 13.4 10.65 L 15 10.12 C 14 7.34 11.4 5.3 8.3 5.3 C 6.6 5.3 4.9 5.97 3.7 7.08 L 1.3 4.7 Z" fill="currentColor"/>
           </svg>
         </button>
         <button id="toolbar-clear-all" title="Clear All">

@@ -15,6 +15,20 @@
 
 #blur-toolbar button {
   cursor: pointer;
+  padding: 4px 10px;
+  border: 1px solid #bbb;
+  background: #fff;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+#blur-toolbar button#toolbar-undo {
+  background: #ffeeba;
+  border-color: #f0ad4e;
+}
+
+#blur-toolbar button#toolbar-undo:hover {
+  background: #ffd966;
 }
 
 #blur-toolbar input[type="range"] {

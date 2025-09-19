@@ -5,6 +5,13 @@ let startX, startY;
 let region;
 let overlay;
 let lastHighlightedElement = null;
+let blurHistory = [];
+
+// Patch blur toggling to track history
+function trackBlurAction(element, action) {
+  if (!element) return;
+  blurHistory.push({ element, action });
+}
 
 const style = document.createElement('style');
 document.head.appendChild(style);
@@ -104,17 +111,39 @@ function setupToolbarEventListeners() {
   const selectBtn = document.getElementById('toolbar-select-element');
   const drawBtn = document.getElementById('toolbar-draw-region');
   const clearBtn = document.getElementById('toolbar-clear-all');
+  const undoBtn = document.getElementById('toolbar-undo');
   const intensitySlider = document.getElementById('toolbar-blur-intensity');
   const screenshotBtn = document.getElementById('toolbar-screenshot');
   const closeBtn = document.getElementById('toolbar-close');
   const dragHandle = document.getElementById('toolbar-drag-handle');
   const toolbar = document.getElementById('blur-toolbar');
 
+
   if (selectBtn) {
     selectBtn.addEventListener('click', () => {
       isSelecting = true;
       isDrawing = false;
       document.body.style.cursor = 'crosshair';
+    });
+  }
+
+  // Undo button logic
+  if (undoBtn) {
+    undoBtn.addEventListener('click', () => {
+      // Remove the most recent blur action
+      while (blurHistory.length > 0) {
+        const last = blurHistory.pop();
+        if (!last || !last.element) continue;
+        if (last.action === 'blurred') {
+          last.element.classList.remove('blurred');
+          break;
+        } else if (last.action === 'region') {
+          if (last.element.parentNode) {
+            last.element.remove();
+            break;
+          }
+        }
+      }
     });
   }
 
@@ -130,6 +159,7 @@ function setupToolbarEventListeners() {
     clearBtn.addEventListener('click', () => {
       document.querySelectorAll('.blurred').forEach(el => el.classList.remove('blurred'));
       document.querySelectorAll('.blur-region').forEach(el => el.remove());
+      blurHistory = [];
       removeOverlay();
     });
   }
@@ -224,19 +254,18 @@ document.addEventListener('click', (event) => {
   if (isSelecting) {
     event.preventDefault();
     event.stopPropagation();
-    
     const element = document.elementFromPoint(event.clientX, event.clientY);
-    
     if (element && !element.closest('#blur-toolbar-container')) {
-      // Check if it's a blur region and remove it
       if (element.classList.contains('blur-region')) {
+        trackBlurAction(element, 'region');
         element.remove();
       } else {
-        // Toggle blur on regular elements
         element.classList.toggle('blurred');
+        if (element.classList.contains('blurred')) {
+          trackBlurAction(element, 'blurred');
+        }
       }
     }
-    
     exitSelectMode();
     return false;
   }

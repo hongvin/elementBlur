@@ -2,6 +2,8 @@
 
 A simple and user-friendly browser extension that allows you to blur elements on any webpage. Perfect for hiding sensitive information or focusing on important content.
 
+<iframe width="560" height="315" src="https://www.youtube.com/watch?v=VkCrY95T3b4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Features
 - Blur any element on a webpage with a click
 - Easy-to-use toolbar interface
@@ -9,7 +11,7 @@ A simple and user-friendly browser extension that allows you to blur elements on
 - Lightweight and privacy-friendly
 
 ## Installation
-1. Download or clone this repository.
+1. Download or clone this repository. 
 2. Open your browser's extensions page (e.g., `chrome://extensions/` for Chrome).
 3. Enable "Developer mode" (usually a toggle in the top right).
 4. Click "Load unpacked" and select the extension folder.

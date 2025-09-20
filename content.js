@@ -1,11 +1,13 @@
 let isSelecting = false;
 let isDrawing = false;
+let isSelectingText = false;
 let blurIntensity = 5;
 let startX, startY;
 let region;
 let overlay;
 let lastHighlightedElement = null;
 let blurHistory = [];
+let originalUserSelect = '';
 
 // Patch blur toggling to track history
 function trackBlurAction(element, action) {
@@ -35,8 +37,14 @@ function removeOverlay() {
         lastHighlightedElement.classList.remove('element-highlight');
         lastHighlightedElement = null;
     }
+    // Restore text selection if it was disabled
+    if (isSelectingText && originalUserSelect !== '') {
+        document.body.style.userSelect = originalUserSelect;
+        originalUserSelect = '';
+    }
     isSelecting = false;
     isDrawing = false;
+    isSelectingText = false;
 }
 
 function exitSelectMode() {
@@ -76,6 +84,12 @@ function updateBlurStyle() {
       z-index: 99999;
       pointer-events: auto;
       cursor: pointer;
+    }
+    .blur-text {
+      color: transparent !important;
+      text-shadow: 0 0 ${blurIntensity}px rgba(0,0,0,0.5) !important;
+      background: rgba(0,0,0,0.1) !important;
+      border-radius: 2px !important;
     }
     /* Ensure toolbar and its children are always on top and never affected */
     #blur-toolbar-container {
@@ -123,7 +137,22 @@ function setupToolbarEventListeners() {
     selectBtn.addEventListener('click', () => {
       isSelecting = true;
       isDrawing = false;
+      isSelectingText = false;
       document.body.style.cursor = 'crosshair';
+    });
+  }
+
+  // Select text button logic
+  const selectTextBtn = document.getElementById('toolbar-select-text');
+  if (selectTextBtn) {
+    selectTextBtn.addEventListener('click', () => {
+      isSelectingText = true;
+      isSelecting = false;
+      isDrawing = false;
+      document.body.style.cursor = 'text';
+      // Enable text selection
+      originalUserSelect = getComputedStyle(document.body).userSelect;
+      document.body.style.userSelect = 'text';
     });
   }
 
@@ -142,6 +171,18 @@ function setupToolbarEventListeners() {
             last.element.remove();
             break;
           }
+        } else if (last.action === 'text-blur') {
+          // For text blur, we need to unwrap the span and restore original text
+          const span = last.element;
+          if (span.parentNode) {
+            // Move all child nodes before the span
+            while (span.firstChild) {
+              span.parentNode.insertBefore(span.firstChild, span);
+            }
+            // Remove the empty span
+            span.remove();
+          }
+          break;
         }
       }
     });
@@ -151,6 +192,7 @@ function setupToolbarEventListeners() {
     drawBtn.addEventListener('click', () => {
       isDrawing = true;
       isSelecting = false;
+      isSelectingText = false;
       createOverlay();
     });
   }
@@ -159,6 +201,7 @@ function setupToolbarEventListeners() {
     clearBtn.addEventListener('click', () => {
       document.querySelectorAll('.blurred').forEach(el => el.classList.remove('blurred'));
       document.querySelectorAll('.blur-region').forEach(el => el.remove());
+      document.querySelectorAll('.blur-text').forEach(el => el.classList.remove('blur-text'));
       blurHistory = [];
       removeOverlay();
     });
@@ -300,8 +343,54 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('mouseup', (event) => {
   if (isDrawing) {
     isDrawing = false;
+    if (region) {
+      // Only track if region has a size (not a click)
+      const width = parseInt(region.style.width || '0');
+      const height = parseInt(region.style.height || '0');
+      if (width > 0 && height > 0) {
+        trackBlurAction(region, 'region');
+      } else {
+        // Remove accidental zero-size region
+        region.remove();
+      }
+    }
     removeOverlay();
     region = null;
+  }
+});
+
+// Text selection handler
+document.addEventListener('mouseup', (event) => {
+  if (isSelectingText) {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+      const range = selection.getRangeAt(0);
+      
+      // Create a span to wrap the selected text
+      const span = document.createElement('span');
+      span.className = 'blur-text';
+      
+      try {
+        // Extract the selected content and wrap it
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+        
+        // Track for undo
+        trackBlurAction(span, 'text-blur');
+        
+        // Clear the selection and exit text selection mode
+        selection.removeAllRanges();
+        isSelectingText = false;
+        document.body.style.cursor = 'default';
+        if (originalUserSelect !== '') {
+          document.body.style.userSelect = originalUserSelect;
+          originalUserSelect = '';
+        }
+      } catch (error) {
+        console.warn('Could not blur selected text:', error);
+      }
+    }
   }
 });
 
@@ -311,6 +400,8 @@ document.addEventListener('keydown', (event) => {
         if (isSelecting) {
             exitSelectMode();
         } else if (isDrawing) {
+            removeOverlay();
+        } else if (isSelectingText) {
             removeOverlay();
         }
     }

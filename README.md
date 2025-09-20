@@ -2,7 +2,11 @@
 
 A simple and user-friendly browser extension that allows you to blur elements on any webpage. Perfect for hiding sensitive information or focusing on important content.
 
-<iframe width="560" height="315" src="https://www.youtube.com/watch?v=VkCrY95T3b4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+https://github.com/user-attachments/assets/45111326-2c45-40f4-91bb-e3b54f87344b
+
+
 
 ## Features
 - Blur any element on a webpage with a click

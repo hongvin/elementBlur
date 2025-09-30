@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Element Blur",
-  "version": "1.0",
-  "description": "Find all elements in a web page and apply a blur effect when the user clicks on them.",
+  "version": "1.1",
+  "description": "Blur or highlight any element, region, or text on a web page with customizable colors and intensity.",
   "permissions": [
     "activeTab",
     "scripting",

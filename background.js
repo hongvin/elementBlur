@@ -33,6 +33,7 @@ function toggleToolbar() {
             <circle cx="9" cy="13" r="1.5" fill="currentColor"/>
           </svg>
         </div>
+        <button id="toolbar-mode-toggle" title="Switch to Highlight Mode">🌫️</button>
         <button id="toolbar-select-element" title="Select Element">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <!-- Selection corners -->
@@ -68,6 +69,9 @@ function toggleToolbar() {
             <path d="M10 2.6C9.9 2.6 9.9 2.6 9.8 2.7L4.7 2.7L4 2.7C3.7 2.7 3.3 3 3.3 3.3L3.3 5.3C3.3 5.7 3.7 6 4 6L4.7 6C5 6 5.3 5.7 5.3 5.3L5.3 4.7L8.7 4.7L8.7 15.3L8 15.3C7.7 15.3 7.3 15.7 7.3 16L7.3 16.7C7.3 17 7.7 17.3 8 17.3L9.8 17.3C9.9 17.4 10.1 17.4 10.2 17.3L12 17.3C12.4 17.3 12.7 17 12.7 16.7L12.7 16C12.7 15.7 12.4 15.3 12 15.3L11.3 15.3L11.3 4.7L14.7 4.7L14.7 5.3C14.7 5.7 15 6 15.3 6L16 6C16.4 6 16.7 5.7 16.7 5.3L16.7 3.3C16.7 3 16.4 2.7 16 2.7L15.3 2.7L10.2 2.7C10.1 2.6 10.1 2.6 10 2.6Z" fill="currentColor"/>
           </svg>
         </button>
+        <div class="color-picker-container">
+          <input type="color" id="toolbar-color-picker" value="#FFFF00" title="Highlight Color">
+        </div>
         <div class="slider-container">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
@@ -180,6 +184,47 @@ function toggleToolbar() {
       #blur-toolbar button:active {
         transform: translateY(0);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      #toolbar-mode-toggle {
+        font-size: 18px;
+        line-height: 1;
+        padding: 6px 8px;
+      }
+      
+      .color-picker-container {
+        display: flex;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.02);
+        border-radius: 8px;
+        padding: 4px;
+        pointer-events: auto !important;
+        filter: none !important;
+        z-index: 2147483647 !important;
+      }
+      
+      #toolbar-color-picker {
+        width: 32px;
+        height: 24px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        background: none;
+        padding: 0;
+      }
+      
+      #toolbar-color-picker::-webkit-color-swatch-wrapper {
+        padding: 0;
+      }
+      
+      #toolbar-color-picker::-webkit-color-swatch {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 6px;
+      }
+      
+      #toolbar-color-picker::-moz-color-swatch {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 6px;
       }
       
       .slider-container {

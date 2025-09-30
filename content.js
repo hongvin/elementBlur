@@ -2,6 +2,9 @@ let isSelecting = false;
 let isDrawing = false;
 let isSelectingText = false;
 let blurIntensity = 5;
+let highlightOpacity = 0.5; // Default opacity for highlights
+let highlightColor = '#FFFF00'; // Default yellow color
+let isHighlightMode = false; // false = blur mode, true = highlight mode
 let startX, startY;
 let region;
 let overlay;
@@ -91,6 +94,23 @@ function updateBlurStyle() {
       background: rgba(0,0,0,0.1) !important;
       border-radius: 2px !important;
     }
+    .highlighted:not(#blur-toolbar-container):not(#blur-toolbar):not(#blur-toolbar *) {
+      background-color: ${highlightColor} !important;
+      opacity: ${highlightOpacity} !important;
+    }
+    .highlight-region {
+      position: absolute;
+      background-color: ${highlightColor};
+      opacity: ${highlightOpacity};
+      z-index: 99999;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .highlight-text {
+      background-color: ${highlightColor} !important;
+      opacity: ${highlightOpacity} !important;
+      border-radius: 2px !important;
+    }
     /* Ensure toolbar and its children are always on top and never affected */
     #blur-toolbar-container {
       position: fixed !important;
@@ -131,6 +151,38 @@ function setupToolbarEventListeners() {
   const closeBtn = document.getElementById('toolbar-close');
   const dragHandle = document.getElementById('toolbar-drag-handle');
   const toolbar = document.getElementById('blur-toolbar');
+  const modeToggle = document.getElementById('toolbar-mode-toggle');
+  const colorPicker = document.getElementById('toolbar-color-picker');
+
+  // Mode toggle button
+  if (modeToggle) {
+    modeToggle.addEventListener('click', () => {
+      isHighlightMode = !isHighlightMode;
+      modeToggle.textContent = isHighlightMode ? '🖍️' : '🌫️';
+      modeToggle.title = isHighlightMode ? 'Switch to Blur Mode' : 'Switch to Highlight Mode';
+      // Update slider label
+      if (intensitySlider) {
+        intensitySlider.title = isHighlightMode ? 'Highlight Opacity' : 'Blur Intensity';
+      }
+      // Show/hide color picker based on mode
+      const colorPickerContainer = document.querySelector('.color-picker-container');
+      if (colorPickerContainer) {
+        colorPickerContainer.style.display = isHighlightMode ? 'flex' : 'none';
+      }
+    });
+  }
+
+  // Color picker
+  if (colorPicker) {
+    colorPicker.addEventListener('input', (e) => {
+      highlightColor = e.target.value;
+      updateBlurStyle();
+      // Update existing highlight regions
+      document.querySelectorAll('.highlight-region').forEach(r => {
+        r.style.backgroundColor = highlightColor;
+      });
+    });
+  }
 
 
   if (selectBtn) {
@@ -166,13 +218,33 @@ function setupToolbarEventListeners() {
         if (last.action === 'blurred') {
           last.element.classList.remove('blurred');
           break;
+        } else if (last.action === 'highlighted') {
+          last.element.classList.remove('highlighted');
+          break;
         } else if (last.action === 'region') {
+          if (last.element.parentNode) {
+            last.element.remove(); 
+            break;
+          }
+        } else if (last.action === 'highlight-region') {
           if (last.element.parentNode) {
             last.element.remove();
             break;
           }
         } else if (last.action === 'text-blur') {
           // For text blur, we need to unwrap the span and restore original text
+          const span = last.element;
+          if (span.parentNode) {
+            // Move all child nodes before the span
+            while (span.firstChild) {
+              span.parentNode.insertBefore(span.firstChild, span);
+            }
+            // Remove the empty span
+            span.remove();
+          }
+          break;
+        } else if (last.action === 'text-highlight') {
+          // For text highlight, we need to unwrap the span and restore original text
           const span = last.element;
           if (span.parentNode) {
             // Move all child nodes before the span
@@ -200,8 +272,11 @@ function setupToolbarEventListeners() {
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       document.querySelectorAll('.blurred').forEach(el => el.classList.remove('blurred'));
+      document.querySelectorAll('.highlighted').forEach(el => el.classList.remove('highlighted'));
       document.querySelectorAll('.blur-region').forEach(el => el.remove());
+      document.querySelectorAll('.highlight-region').forEach(el => el.remove());
       document.querySelectorAll('.blur-text').forEach(el => el.classList.remove('blur-text'));
+      document.querySelectorAll('.highlight-text').forEach(el => el.classList.remove('highlight-text'));
       blurHistory = [];
       removeOverlay();
     });
@@ -209,11 +284,19 @@ function setupToolbarEventListeners() {
 
   if (intensitySlider) {
     intensitySlider.addEventListener('input', (e) => {
-      blurIntensity = e.target.value;
-      updateBlurStyle();
-      document.querySelectorAll('.blur-region').forEach(r => {
-        r.style.backdropFilter = `blur(${blurIntensity}px)`;
-      });
+      if (isHighlightMode) {
+        highlightOpacity = e.target.value / 20; // Convert 0-20 to 0-1
+        updateBlurStyle();
+        document.querySelectorAll('.highlight-region').forEach(r => {
+          r.style.opacity = highlightOpacity;
+        });
+      } else {
+        blurIntensity = e.target.value;
+        updateBlurStyle();
+        document.querySelectorAll('.blur-region').forEach(r => {
+          r.style.backdropFilter = `blur(${blurIntensity}px)`;
+        });
+      }
     });
   }
 
@@ -281,6 +364,12 @@ function setupToolbarEventListeners() {
       isDragging = false;
     });
   }
+  
+  // Initialize color picker visibility (hide by default since we start in blur mode)
+  const colorPickerContainer = document.querySelector('.color-picker-container');
+  if (colorPickerContainer) {
+    colorPickerContainer.style.display = 'none';
+  }
 }
 
 // Simple global event handlers
@@ -299,13 +388,20 @@ document.addEventListener('click', (event) => {
     event.stopPropagation();
     const element = document.elementFromPoint(event.clientX, event.clientY);
     if (element && !element.closest('#blur-toolbar-container')) {
-      if (element.classList.contains('blur-region')) {
-        trackBlurAction(element, 'region');
+      if (element.classList.contains('blur-region') || element.classList.contains('highlight-region')) {
+        trackBlurAction(element, element.classList.contains('blur-region') ? 'region' : 'highlight-region');
         element.remove();
       } else {
-        element.classList.toggle('blurred');
-        if (element.classList.contains('blurred')) {
-          trackBlurAction(element, 'blurred');
+        if (isHighlightMode) {
+          element.classList.toggle('highlighted');
+          if (element.classList.contains('highlighted')) {
+            trackBlurAction(element, 'highlighted');
+          }
+        } else {
+          element.classList.toggle('blurred');
+          if (element.classList.contains('blurred')) {
+            trackBlurAction(element, 'blurred');
+          }
         }
       }
     }
@@ -320,7 +416,7 @@ document.addEventListener('mousedown', (event) => {
     startX = event.pageX;
     startY = event.pageY;
     region = document.createElement('div');
-    region.className = 'blur-region';
+    region.className = isHighlightMode ? 'highlight-region' : 'blur-region';
     region.style.left = `${startX}px`;
     region.style.top = `${startY}px`;
     document.body.appendChild(region);
@@ -348,7 +444,8 @@ document.addEventListener('mouseup', (event) => {
       const width = parseInt(region.style.width || '0');
       const height = parseInt(region.style.height || '0');
       if (width > 0 && height > 0) {
-        trackBlurAction(region, 'region');
+        const actionType = region.classList.contains('highlight-region') ? 'highlight-region' : 'region';
+        trackBlurAction(region, actionType);
       } else {
         // Remove accidental zero-size region
         region.remove();
@@ -368,7 +465,7 @@ document.addEventListener('mouseup', (event) => {
       
       // Create a span to wrap the selected text
       const span = document.createElement('span');
-      span.className = 'blur-text';
+      span.className = isHighlightMode ? 'highlight-text' : 'blur-text';
       
       try {
         // Extract the selected content and wrap it
@@ -377,7 +474,8 @@ document.addEventListener('mouseup', (event) => {
         range.insertNode(span);
         
         // Track for undo
-        trackBlurAction(span, 'text-blur');
+        const actionType = isHighlightMode ? 'text-highlight' : 'text-blur';
+        trackBlurAction(span, actionType);
         
         // Clear the selection and exit text selection mode
         selection.removeAllRanges();
@@ -415,57 +513,4 @@ window.addEventListener('message', (event) => {
   if (event.data.type === 'SETUP_TOOLBAR') {
     setupToolbarEventListeners();
   }
-});
-
-document.addEventListener('click', (event) => {
-  if (isSelecting) {
-    event.preventDefault();
-    event.stopPropagation();
-    // Find the real target under the overlay
-    const target = document.elementFromPoint(event.clientX, event.clientY);
-    if (target && target.id !== 'blur-mode-overlay') {
-        target.classList.toggle('blurred');
-    }
-    removeOverlay();
-  }
-}, true);
-
-document.addEventListener('mousedown', (event) => {
-  if (isDrawing) {
-    startX = event.pageX;
-    startY = event.pageY;
-    region = document.createElement('div');
-    region.className = 'blur-region';
-    region.style.left = `${startX}px`;
-    region.style.top = `${startY}px`;
-    document.body.appendChild(region);
-  }
-});
-
-document.addEventListener('mousemove', (event) => {
-  if (region) {
-    const width = Math.abs(event.pageX - startX);
-    const height = Math.abs(event.pageY - startY);
-    const left = Math.min(event.pageX, startX);
-    const top = Math.min(event.pageY, startY);
-    region.style.width = `${width}px`;
-    region.style.height = `${height}px`;
-    region.style.left = `${left}px`;
-    region.style.top = `${top}px`;
-  }
-});
-
-document.addEventListener('mouseup', (event) => {
-  if (isDrawing) {
-    isDrawing = false;
-    removeOverlay();
-    region = null;
-  }
-});
-
-// Listen for Escape key to cancel modes
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        removeOverlay();
-    }
 });

@@ -1,294 +1,114 @@
-chrome.action.onClicked.addListener((tab) => {
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    function: toggleToolbar,
+// Element Blur — background service worker.
+//
+// Responsibilities:
+//   1. Toggle the in-page toolbar when the user clicks the extension action.
+//   2. Capture the visible tab when the content script asks for a screenshot.
+//
+// All page interaction lives in content.js, and the toolbar DOM is created there
+// too — so no page-context bridge (window.postMessage) is required.
+
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab || tab.id === undefined) return;
+
+  try {
+    // Injected on demand (and idempotent), so pages only ever see this extension
+    // when the user actually asks for it.
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content.js'],
+    });
+  } catch (error) {
+    // Restricted pages: chrome://, the Chrome Web Store, the PDF viewer, ...
+    flashBadge();
+    console.warn('Element Blur: cannot run on this page.', error);
+    return;
+  }
+
+  chrome.tabs.sendMessage(tab.id, { type: 'element-blur:toggle-toolbar' }, () => {
+    // Read lastError to avoid "Unchecked runtime.lastError" when the frame is gone.
+    void chrome.runtime.lastError;
   });
 });
 
-function toggleToolbar() {
-  // This function runs in the page context
-  const toolbarId = 'blur-toolbar-container';
-  let toolbarContainer = document.getElementById(toolbarId);
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (!request) return;
 
-  if (toolbarContainer) {
-    toolbarContainer.remove();
-    // Also remove overlay if it exists
-    const overlay = document.getElementById('blur-mode-overlay');
-    if (overlay) overlay.remove();
-    document.body.style.cursor = 'default';
-  } else {
-    // Create toolbar
-    toolbarContainer = document.createElement('div');
-    toolbarContainer.id = toolbarId;
-    toolbarContainer.style.cssText = 'position: fixed !important; top: 20px; right: 20px; z-index: 2147483647 !important; pointer-events: auto !important; filter: none !important;';
-    toolbarContainer.innerHTML = `
-      <div id="blur-toolbar">
-        <div id="toolbar-drag-handle" title="Drag to move">
-          <svg width="12" height="16" viewBox="0 0 12 16" fill="none">
-            <circle cx="3" cy="3" r="1.5" fill="currentColor"/>
-            <circle cx="9" cy="3" r="1.5" fill="currentColor"/>
-            <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
-            <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
-            <circle cx="3" cy="13" r="1.5" fill="currentColor"/>
-            <circle cx="9" cy="13" r="1.5" fill="currentColor"/>
-          </svg>
-        </div>
-        <button id="toolbar-mode-toggle" title="Switch to Highlight Mode">🌫️</button>
-        <button id="toolbar-select-element" title="Select Element">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <!-- Selection corners -->
-            <path d="M1.5 0.5L1 0.5C0.72 0.5 0.5 0.72 0.5 1L0.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M14.5 0.5L15 0.5C15.28 0.5 15.5 0.72 15.5 1L15.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M1.5 15.5L1 15.5C0.72 15.5 0.5 15.28 0.5 15L0.5 14.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M14.5 15.5L15 15.5C15.28 15.5 15.5 15.28 15.5 15L15.5 14.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <!-- Dashed lines -->
-            <path d="M3.5 0.5L5.5 0.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M7.5 0.5L9.5 0.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M11.5 0.5L13.5 0.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M3.5 15.5L5.5 15.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M7.5 15.5L9.5 15.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M11.5 15.5L13.5 15.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M0.5 3.5L0.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M0.5 7.5L0.5 9.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M0.5 11.5L0.5 13.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M15.5 3.5L15.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M15.5 7.5L15.5 9.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <path d="M15.5 11.5L15.5 13.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            <!-- Cursor arrow -->
-            <path d="M11.4 12.8C11.35 13 11.26 13 11.19 12.85L8.9 8.45C8.83 8.3 8.93 8.21 9.08 8.27L13.48 10.55C13.63 10.62 13.61 10.71 13.41 10.77L11.85 11.18Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" fill="none"/>
-          </svg>
-        </button>
-        <button id="toolbar-draw-region" title="Draw Region">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <rect x="5" y="5" width="6" height="6" fill="currentColor" opacity="0.3"/>
-          </svg>
-        </button>
-        <button id="toolbar-select-text" title="Select Text">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 2.6C9.9 2.6 9.9 2.6 9.8 2.7L4.7 2.7L4 2.7C3.7 2.7 3.3 3 3.3 3.3L3.3 5.3C3.3 5.7 3.7 6 4 6L4.7 6C5 6 5.3 5.7 5.3 5.3L5.3 4.7L8.7 4.7L8.7 15.3L8 15.3C7.7 15.3 7.3 15.7 7.3 16L7.3 16.7C7.3 17 7.7 17.3 8 17.3L9.8 17.3C9.9 17.4 10.1 17.4 10.2 17.3L12 17.3C12.4 17.3 12.7 17 12.7 16.7L12.7 16C12.7 15.7 12.4 15.3 12 15.3L11.3 15.3L11.3 4.7L14.7 4.7L14.7 5.3C14.7 5.7 15 6 15.3 6L16 6C16.4 6 16.7 5.7 16.7 5.3L16.7 3.3C16.7 3 16.4 2.7 16 2.7L15.3 2.7L10.2 2.7C10.1 2.6 10.1 2.6 10 2.6Z" fill="currentColor"/>
-          </svg>
-        </button>
-        <div class="color-picker-container">
-          <input type="color" id="toolbar-color-picker" value="#FFFF00" title="Highlight Color">
-        </div>
-        <div class="slider-container">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <circle cx="7" cy="7" r="2" fill="currentColor"/>
-          </svg>
-          <input type="range" id="toolbar-blur-intensity" min="0" max="20" value="5" title="Blur Intensity">
-        </div>
-        <button id="toolbar-screenshot" title="Screenshot">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="4" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <circle cx="8" cy="8.5" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <rect x="6" y="2" width="4" height="2" rx="0.5" fill="currentColor"/>
-          </svg>
-        </button>
-        <button id="toolbar-undo" title="Undo">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M 1.3 4.7 L 1.3 10.7 L 7.3 10.7 L 4.9 8.25 C 5.8 7.47 7 7 8.3 7 C 10.7 7 12.7 8.53 13.4 10.65 L 15 10.12 C 14 7.34 11.4 5.3 8.3 5.3 C 6.6 5.3 4.9 5.97 3.7 7.08 L 1.3 4.7 Z" fill="currentColor"/>
-          </svg>
-        </button>
-        <button id="toolbar-clear-all" title="Clear All">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M6 2V3H10V2C10 1.45 9.55 1 9 1H7C6.45 1 6 1.45 6 2Z" fill="currentColor"/>
-            <path d="M3 4V13C3 14.1 3.9 15 5 15H11C12.1 15 13 14.1 13 13V4H3ZM6 12C6 12.28 5.78 12.5 5.5 12.5S5 12.28 5 12V7C5 6.72 5.22 6.5 5.5 6.5S6 6.72 6 7V12ZM8.5 12C8.5 12.28 8.28 12.5 8 12.5S7.5 12.28 7.5 12V7C7.5 6.72 7.72 6.5 8 6.5S8.5 6.72 8.5 7V12ZM11 12C11 12.28 10.78 12.5 10.5 12.5S10 12.28 10 12V7C10 6.72 10.22 6.5 10.5 6.5S11 6.72 11 7V12Z" fill="currentColor"/>
-            <rect x="1" y="3" width="14" height="1.5" rx="0.5" fill="currentColor"/>
-          </svg>
-        </button>
-        <button id="toolbar-close" title="Close">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-    `;
-    document.body.appendChild(toolbarContainer);
+  // One viewport capture for the content script, which does the cropping /
+  // stitching itself. captureVisibleTab() is rate limited to 2 calls/second.
+  if (request.action === 'element-blur:capture') {
+    (async () => {
+      try {
+        const dataUrl = await captureVisibleTab(sender.tab ? sender.tab.windowId : null);
+        sendResponse({ ok: true, dataUrl });
+      } catch (error) {
+        console.warn('Element Blur: capture failed.', error);
+        flashBadge();
+        sendResponse({ ok: false, error: String((error && error.message) || error) });
+      }
+    })();
+    // Keep the message channel open for the asynchronous sendResponse().
+    return true;
+  }
 
-    // Add CSS
-    const style = document.createElement('style');
-    style.textContent = `
-      #blur-toolbar-container {
-        position: fixed !important;
-        z-index: 2147483647 !important;
-        pointer-events: auto !important;
-        filter: none !important;
+  // A finished screenshot goes to the viewer tab.
+  if (request.action === 'element-blur:open-viewer') {
+    (async () => {
+      try {
+        await openViewer(request.payload);
+        sendResponse({ ok: true });
+      } catch (error) {
+        console.warn('Element Blur: could not open the screenshot viewer.', error);
+        flashBadge();
+        sendResponse({ ok: false, error: String((error && error.message) || error) });
       }
-      
-      #blur-toolbar {
-        position: relative;
-        top: 0;
-        left: 0;
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 12px;
-        padding: 8px;
-        z-index: 2147483647 !important;
-        display: flex;
-        gap: 4px;
-        align-items: center;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-        backdrop-filter: blur(20px);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        user-select: none;
-        pointer-events: auto !important;
-        filter: none !important;
-      }
-      
-      #toolbar-drag-handle {
-        cursor: move;
-        color: #6b7280;
-        padding: 6px 4px;
-        opacity: 0.7;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-        pointer-events: auto !important;
-        filter: none !important;
-        z-index: 2147483647 !important;
-      }
-      
-      #toolbar-drag-handle:hover {
-        opacity: 1;
-        background: rgba(0, 0, 0, 0.05);
-      }
-      
-      #blur-toolbar button {
-        cursor: pointer;
-        padding: 8px;
-        border: none;
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.02);
-        color: #374151;
-        min-width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        pointer-events: auto !important;
-        filter: none !important;
-        z-index: 2147483647 !important;
-      }
-      
-      #blur-toolbar button:hover {
-        background: rgba(0, 0, 0, 0.08);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      }
-      
-      #blur-toolbar button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      }
-      
-      #toolbar-mode-toggle {
-        font-size: 18px;
-        line-height: 1;
-        padding: 6px 8px;
-      }
-      
-      .color-picker-container {
-        display: flex;
-        align-items: center;
-        background: rgba(0, 0, 0, 0.02);
-        border-radius: 8px;
-        padding: 4px;
-        pointer-events: auto !important;
-        filter: none !important;
-        z-index: 2147483647 !important;
-      }
-      
-      #toolbar-color-picker {
-        width: 32px;
-        height: 24px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        background: none;
-        padding: 0;
-      }
-      
-      #toolbar-color-picker::-webkit-color-swatch-wrapper {
-        padding: 0;
-      }
-      
-      #toolbar-color-picker::-webkit-color-swatch {
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 6px;
-      }
-      
-      #toolbar-color-picker::-moz-color-swatch {
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 6px;
-      }
-      
-      .slider-container {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(0, 0, 0, 0.02);
-        border-radius: 8px;
-        padding: 6px 10px;
-        pointer-events: auto !important;
-        filter: none !important;
-        z-index: 2147483647 !important;
-      }
-      
-      .slider-container svg {
-        color: #6b7280;
-      }
-      
-      #blur-toolbar input[type="range"] {
-        width: 60px;
-        height: 4px;
-        appearance: none;
-        background: rgba(0, 0, 0, 0.1);
-        border-radius: 2px;
-        outline: none;
-      }
-      
-      #blur-toolbar input[type="range"]::-webkit-slider-thumb {
-        appearance: none;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #374151;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        transition: all 0.2s ease;
-      }
-      
-      #blur-toolbar input[type="range"]::-webkit-slider-thumb:hover {
-        background: #1f2937;
-        transform: scale(1.1);
-      }
-      
-      #blur-toolbar input[type="range"]::-moz-range-thumb {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #374151;
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-      }
-    `;
-    document.head.appendChild(style);
+    })();
+    return true;
+  }
+});
 
-    // Send message to content script to set up event handlers
-    window.postMessage({ type: 'SETUP_TOOLBAR' }, '*');
+function captureVisibleTab(windowId) {
+  return new Promise((resolve, reject) => {
+    // Callback form on purpose: captureVisibleTab() is rate limited to 2 calls per
+    // second (chrome.tabs.MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND) and fails with
+    // "MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND exceeded" when hammered.
+    chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else if (!dataUrl) {
+        reject(new Error('captureVisibleTab() returned no image'));
+      } else {
+        resolve(dataUrl);
+      }
+    });
+  });
+}
+
+// Opens a finished screenshot in a dedicated extension viewer tab.
+//
+// The payload travels through chrome.storage.session because Chromium blocks
+// top-frame navigation to data: URLs ("Not allowed to navigate the top frame to
+// data URL"). storage.session needs the "storage" permission, which the manifest
+// declares.
+async function openViewer(payload) {
+  const key = 'shot-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+
+  try {
+    await chrome.storage.session.set({ [key]: payload });
+    await chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html#${key}`) });
+  } catch (error) {
+    // storage.session unavailable or over quota — fall back to the legacy data-URL tab.
+    console.warn('Element Blur: falling back to a data-URL tab.', error);
+    await chrome.tabs.create({ url: payload && payload.dataUrl ? payload.dataUrl : 'about:blank' });
   }
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'toolbar-screenshot') {
-    chrome.tabs.captureVisibleTab(null, {}, (image) => {
-      chrome.tabs.create({ url: image });
-    });
-  }
-});
+let badgeTimer = null;
+
+// Visible feedback when something silently used to fail (restricted page, capture
+// error): flash a badge on the toolbar icon instead of doing nothing.
+function flashBadge(text) {
+  chrome.action.setBadgeBackgroundColor({ color: '#dc2626' });
+  chrome.action.setBadgeText({ text: text || '!' });
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2500);
+}
